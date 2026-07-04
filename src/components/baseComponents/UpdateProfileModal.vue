@@ -1,0 +1,402 @@
+<template>
+  <div>
+    <div class="backdrop"></div>
+    <dialog open>
+      <div class="welcome-modal">
+        <p style="float: right; color: #FFFFFF;" @click="emitClose">x</p>
+        <form @submit.prevent="updateProfile">
+          <p class="text-1">Update Profile</p>
+
+          <div class="seprate">
+            <div class="space">
+              <label>First Name</label>
+              <input type="text" v-model="firstName" placeholder="Enter First Name" class="form-input" />
+            </div>
+
+            <div class="space">
+              <label>Last Name</label>
+              <input type="text" v-model="lastName" placeholder="Enter Last Name" class="form-input" />
+            </div>
+          </div>
+
+          <div class="seprate">
+            <div class="space">
+              <label>Email</label>
+              <input type="email" v-model="email" placeholder="Enter Email" class="form-input" />
+            </div>
+
+            <div class="space">
+              <label>Date Of Birth</label>
+              <input type="datetime-local" v-model="dob" class="form-input" />
+            </div>
+          </div>
+
+          <div class="seprate">
+            <div class="space">
+              <label>Nationality</label>
+              <input type="text" v-model="nationality" placeholder="Enter Nationality" class="form-input" />
+            </div>
+
+            <div class="space">
+              <label>Status</label>
+              <select v-model="status" class="form-input" required>
+                <option value="active">Active</option>
+                <option value="inActive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="space">
+            <label>Number of meet up</label>
+            <input type="number" v-model.number="meetups" placeholder="Enter Number of meet up" class="form-input" />
+          </div>
+
+          <div class="seprate">
+            <div class="space">
+              <label>Amount received</label>
+              <input type="number" v-model.number="amountReceived" placeholder="Enter Amount received" class="form-input" />
+            </div>
+
+            <div class="space">
+              <label>Allowance</label>
+              <input type="number" v-model.number="allowance" placeholder="Enter Allowance" class="form-input" />
+            </div>
+          </div>
+
+          <div class="space">
+            <label>Attach Image</label>
+            <input type="file" @change="handleFileUpload" class="form-input" />
+          </div>
+
+          <button class="link-button-3" type="submit" :disabled="isLoading">
+            <span v-if="isLoading" class="spinner"></span>
+            {{ isLoading ? 'UPDATING...' : 'Update' }}
+          </button>
+        </form>
+      </div>
+    </dialog>
+  </div>
+</template>
+
+<script>
+import Swal from "sweetalert2";
+import { serverTimestamp } from "firebase/firestore";
+import { db } from "@/firebase/config";
+import { doc, updateDoc } from "firebase/firestore";
+
+export default {
+  name: "UpdateProfileModal",
+  emits: ['close'],
+  props: {
+    selectedProfile: {
+      type: Object,
+      default: null,
+    },
+  },
+  data() {
+    return {
+      firstName: "",
+      lastName: "",
+      email: "",
+      dob: "",
+      nationality: "",
+      status: "",
+      meetups: null,
+      amountReceived: null,
+      allowance: null,
+      imageBase64: "",
+      uniqueId: "",
+      isLoading: false,
+    };
+  },
+  watch: {
+    selectedProfile: {
+      immediate: true,
+      handler(newProfile) {
+        if (newProfile) {
+          this.firstName = newProfile.firstName || "";
+          this.lastName = newProfile.lastName || "";
+          this.email = newProfile.email || "";
+          this.dob = newProfile.dob || "";
+          this.nationality = newProfile.nationality || "";
+          this.status = newProfile.status || "inActive";
+          this.meetups = newProfile.meetups ?? 0;
+          this.amountReceived = newProfile.amountReceived ?? 0;
+          this.allowance = newProfile.allowance ?? 0;
+          this.imageBase64 = newProfile.image || "";
+          this.uniqueId = newProfile.uniqueId || "";
+        } else {
+          this.resetForm();
+        }
+      },
+    },
+  },
+  methods: {
+    handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.imageBase64 = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        this.imageBase64 = "";
+      }
+    },
+    async updateProfile() {
+      if (!this.email) {
+        await Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "Profile email is missing.",
+        });
+        return;
+      }
+      try {
+        this.isLoading = true;
+        const docRef = doc(db, "Profiles", this.email);
+        await updateDoc(docRef, {
+          firstName: this.firstName || "",
+          lastName: this.lastName || "",
+          email: this.email,
+          dob: this.dob || "",
+          nationality: this.nationality || "",
+          status: this.status || "inActive",
+          meetups: this.meetups ?? 0,
+          amountReceived: this.amountReceived ?? 0,
+          allowance: this.allowance ?? 0,
+          image: this.imageBase64 || "",
+          uniqueId: this.uniqueId,
+          updatedAt: serverTimestamp(),
+        });
+        await Swal.fire({
+          icon: "success",
+          title: "Success",
+          text: "Profile updated successfully!",
+        });
+        this.resetForm();
+        this.$emit('close');
+      } catch (error) {
+        console.error("Error updating profile:", error);
+        await Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "Failed to update profile. Please try again.",
+        });
+      } finally {
+        this.isLoading = false;
+      }
+    },
+    emitClose() {
+      this.$emit('close');
+    },
+    resetForm() {
+      this.firstName = "";
+      this.lastName = "";
+      this.email = "";
+      this.dob = "";
+      this.nationality = "";
+      this.status = "";
+      this.meetups = null;
+      this.amountReceived = null;
+      this.allowance = null;
+      this.imageBase64 = "";
+      this.uniqueId = "";
+    },
+  },
+};
+</script>
+
+<style scoped>
+h3 {
+  margin: 40px 0 0;
+}
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+li {
+  display: inline-block;
+  margin: 0 10px;
+}
+.seprate {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.space {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  margin-top: 2%;
+  width: 100%;
+}
+.text-1 {
+  text-align: center;
+  color: #FFFFFF;
+  font-size: 25px;
+}
+.backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 10;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+div {
+  padding-bottom: 10px;
+}
+.link-button-3 {
+  float: right;
+  margin-top: 5%;
+  background-color: #4CAF50;
+  border: 1px solid #4CAF50;
+  display: block;
+  font-weight: 400;
+  width: 100%;
+  padding: 5px 20px;
+  color: #ffffff;
+  text-align: center;
+  vertical-align: middle;
+  user-select: none;
+  font-size: 0.875rem;
+  height: 33px;
+  line-height: 1.4;
+  border-radius: 5px;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.link-button-3:hover {
+  background-color: #ffffff;
+  border: 1px solid #ffffff;
+  color: #4CAF50;
+}
+dialog {
+  position: fixed;
+  top: 9vh;
+  width: 32rem;
+  height: 20rem;
+  left: calc(50% - 17rem);
+  margin: 0;
+  background-color: transparent;
+  z-index: 100;
+  border: none;
+  animation: modal 0.3s ease-out forwards;
+}
+.welcome-modal {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 600px;
+  height: auto;
+  padding: 24px;
+  border-style: solid;
+  border-width: 1px;
+  border-color: rgba(3, 28, 67, 0.1);
+  border-radius: 10px;
+  background-color: rgba(15, 23, 42, 0.7);
+  box-shadow: 0 0 34px 0 rgba(3, 28, 67, 0.13);
+}
+@keyframes modal {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+label {
+  padding-bottom: 5px;
+  color: #FFFFFF;
+}
+.form-input {
+  border: 1px solid #e4e8ee;
+  border-radius: 5px;
+  height: 35px;
+  padding: 5px 20px;
+  width: 100%;
+}
+
+.form-group input {
+  display: block;
+  font-size: 16px;
+  line-height: 24px;
+  padding: 12px 16px;
+  height: 48px;
+  border-radius: 8px;
+  color: var(--black-color);
+  border: 1px solid #e4e8ee;
+  box-shadow: none;
+  width: 100%;
+}
+.form-group input:focus {
+  outline: none;
+  border: 1px solid #24405A;
+}
+.form-group input::placeholder {
+  color: var(--black-color);
+  font-weight: 400;
+  font-size: 14px;
+}
+.form-group select {
+  display: block;
+  font-size: 13px;
+  line-height: 24px;
+  letter-spacing: -0.1px;
+  padding: 12px 16px;
+  height: 48px;
+  border-radius: 5px;
+  color: var(--black-color);
+  border: 1px solid #e4e8ee;
+  box-shadow: none;
+  width: 100%;
+}
+.form-group select:focus {
+  outline: none;
+  border: 1px solid #24405A;
+}
+.form-group select::placeholder {
+  color: var(--black-color);
+  font-weight: 400;
+  font-size: 14px;
+}
+
+@media (max-width: 500px) {
+  .welcome-modal {
+    width: 400px;
+    padding: 25px 25px 35px 25px;
+  }
+  dialog {
+    top: 13vh;
+    width: 25rem;
+    height: 20rem;
+    right: 30px;
+    left: calc(50% - 12.5rem);
+  }
+  p {
+    font-size: unset;
+  }
+  .text-1 {
+    font-size: 22px;
+  }
+}
+</style>
